@@ -1,27 +1,311 @@
 ﻿using System.Reflection;
 using System.Text;
 
-string NomeEntidade = "RegistroCampoTeste";
-string DiretorioController = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI\Controllers";
-string DiretorioEntidade = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI.DominioEntityFramework\Entidades";
-string DiretorioModel = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI\Models";
-string DiretorioDtos = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Dtos";
-string DiretorioExecutores = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Executores";
-string DiretorioRepositorios = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI.Infraestrutura\Repositorios";
-string DiretorioInterfaceRepositorioAplicacao = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\RepositoriosEntityFramework";
-string DiretorioRequisicao = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Requisicoes";
-string DiretorioResultado = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Resultados";
-string DiretorioRepositorioInfraestrutura = @"C:\Users\phili\source\repos\InspecaoWebAPI\InspecaoWebAPI.InfraestruturaEntityFramework\BancoDados\RepositoriosEntityFramework";
+string DiretorioModel = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI\Models";
+string DiretorioDtos = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Dtos";
+string DiretorioExecutores = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Executores";
+string DiretorioInterfaceRepositorioAplicacao = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\RepositoriosEntityFramework";
+string DiretorioRequisicao = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Requisicoes";
+string DiretorioResultado = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Resultados";
+string DiretorioRepositorioInfraestrutura = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.InfraestruturaEntityFramework\BancoDados\RepositoriosEntityFramework";
+
+string namespaceName = "InspecaoWebAPI";
+string entityName = "TesteEntidade";
+string assemblyEntidadePath = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.DominioEntityFramework\bin\Debug\net6.0\InspecaoWebAPI.DominioEntityFramework.dll";
+
+Assembly assembly = Assembly.LoadFrom(assemblyEntidadePath);
+string aaaaaa = $"InspecaoWebAPI.DominioEntityFramework.Entidades.{entityName}";
+//Type entityType = assembly.GetType(entityName);
+Type entityType = assembly.GetTypes().FirstOrDefault(a=>a.FullName.EndsWith(entityName));
+
+//Dto
+string dto = GenerateDTO(entityType);
+string entityDirectory = Path.Combine(DiretorioDtos, $"{entityName}s");
+Directory.CreateDirectory(entityDirectory);
+string filePath = Path.Combine(entityDirectory, $"{entityName}Dto.cs");
+File.WriteAllText(filePath, dto);
+
+//Repositorios (Interface/Implementacao)
+// Interface
+string interfaceRepositorio = GenerateInterfaceRepositorioAplicacao(entityName, namespaceName);
+string interfaceRepositorioDirectory = Path.Combine(DiretorioInterfaceRepositorioAplicacao, $"{entityName}s");
+Directory.CreateDirectory(interfaceRepositorioDirectory);
+string interfaceRepositorioFilePath = Path.Combine(interfaceRepositorioDirectory, $"I{entityName}Repositorio.cs");
+File.WriteAllText(interfaceRepositorioFilePath, interfaceRepositorio);
+
+// Implementacao
+string implementacaoRepositorio = GenerateRepositorioInfraestrutura(entityName, namespaceName);
+string implementacaoRepositorioDirectory = Path.Combine(DiretorioRepositorioInfraestrutura, $"{entityName}s");
+Directory.CreateDirectory(implementacaoRepositorioDirectory);
+string implementacaoRepositorioFilePath = Path.Combine(implementacaoRepositorioDirectory, $"{entityName}Repositorio.cs");
+File.WriteAllText(implementacaoRepositorioFilePath, implementacaoRepositorio);
+
+//CRUD: Obter (Executor/Requisicao/Resultado/Input/Output)
+// Executor
+string executorCode = GenerateExecutorToObter(entityName, namespaceName);
+string executorDirectory = Path.Combine(DiretorioExecutores, $"{entityName}s");
+Directory.CreateDirectory(executorDirectory);
+string executorFilePath = Path.Combine(executorDirectory, $"Obter{entityName}Executor.cs");
+File.WriteAllText(executorFilePath, executorCode);
+
+// Requisicao
+string requisicaoCode = GenerateRequisicaoToObter(entityName);
+string requisicaoDirectory = Path.Combine(DiretorioRequisicao, $"{entityName}s");
+Directory.CreateDirectory(requisicaoDirectory);
+string requisicaoFilePath = Path.Combine(requisicaoDirectory, $"Obter{entityName}Requisicao.cs");
+File.WriteAllText(requisicaoFilePath, requisicaoCode);
+
+// Resultado
+string resultadoCode = GenerateResultadoToObter(entityName);
+string resultadoDirectory = Path.Combine(DiretorioResultado, $"{entityName}s");
+Directory.CreateDirectory(resultadoDirectory);
+string resultadoFilePath = Path.Combine(resultadoDirectory, $"Obter{entityName}Resultado.cs");
+File.WriteAllText(resultadoFilePath, resultadoCode);
+
+// Input
+string inputCode = GenerateInputToObter(entityName);
+string inputDirectory = Path.Combine(DiretorioModel, $"{entityName}s");
+Directory.CreateDirectory(inputDirectory);
+string inputFilePath = Path.Combine(inputDirectory, $"Obter{entityName}Input.cs");
+File.WriteAllText(inputFilePath, inputCode);
+
+// Output
+string outputCode = GenerateOutputToObter(entityName);
+string outputDirectory = Path.Combine(DiretorioModel, $"{entityName}s");
+Directory.CreateDirectory(outputDirectory);
+string outputFilePath = Path.Combine(outputDirectory, $"Obter{entityName}Output.cs");
+File.WriteAllText(outputFilePath, outputCode);
+
+//CRUD: Inserir (Executor/Requisicao/Resultado/Input/Output)
+// Executor
+executorCode = GenerateExecutorToInsert(entityName, namespaceName);
+executorDirectory = Path.Combine(DiretorioExecutores, $"{entityName}s");
+Directory.CreateDirectory(executorDirectory);
+executorFilePath = Path.Combine(executorDirectory, $"Inserir{entityName}Executor.cs");
+File.WriteAllText(executorFilePath, executorCode);
+
+// Requisicao
+requisicaoCode = GenerateRequisicaoToInserir(entityType, entityName);
+requisicaoDirectory = Path.Combine(DiretorioRequisicao, $"{entityName}s");
+Directory.CreateDirectory(requisicaoDirectory);
+requisicaoFilePath = Path.Combine(requisicaoDirectory, $"Inserir{entityName}Requisicao.cs");
+File.WriteAllText(requisicaoFilePath, requisicaoCode);
+
+// Resultado
+resultadoCode = GenerateResultadoToInserir(entityName);
+resultadoDirectory = Path.Combine(DiretorioResultado, $"{entityName}s");
+Directory.CreateDirectory(resultadoDirectory);
+resultadoFilePath = Path.Combine(resultadoDirectory, $"Inserir{entityName}Resultado.cs");
+File.WriteAllText(resultadoFilePath, resultadoCode);
+
+// Input
+inputCode = GenerateInputToInserir(entityType,entityName);
+inputDirectory = Path.Combine(DiretorioModel, $"{entityName}s");
+Directory.CreateDirectory(inputDirectory);
+inputFilePath = Path.Combine(inputDirectory, $"Inserir{entityName}Input.cs");
+File.WriteAllText(inputFilePath, inputCode);
+
+// Output
+outputCode = GenerateOutputToInserir(entityName);
+outputDirectory = Path.Combine(DiretorioModel, $"{entityName}s");
+Directory.CreateDirectory(outputDirectory);
+outputFilePath = Path.Combine(outputDirectory, $"Inserir{entityName}Output.cs");
+File.WriteAllText(outputFilePath, outputCode);
+
+//CRUD: Editar (Executor/Requisicao/Resultado/Input/Output)
+// Executor
+executorCode = GenerateExecutorToEditar(entityName, namespaceName);
+executorDirectory = Path.Combine(DiretorioExecutores, $"{entityName}s");
+Directory.CreateDirectory(executorDirectory);
+executorFilePath = Path.Combine(executorDirectory, $"Editar{entityName}Executor.cs");
+File.WriteAllText(executorFilePath, executorCode);
+
+// Requisicao
+requisicaoCode = GenerateRequisicaoToEditar(entityType, entityName);
+requisicaoDirectory = Path.Combine(DiretorioRequisicao, $"{entityName}s");
+Directory.CreateDirectory(requisicaoDirectory);
+requisicaoFilePath = Path.Combine(requisicaoDirectory, $"Editar{entityName}Requisicao.cs");
+File.WriteAllText(requisicaoFilePath, requisicaoCode);
+
+// Resultado
+resultadoCode = GenerateResultadoToEditar(entityName);
+resultadoDirectory = Path.Combine(DiretorioResultado, $"{entityName}s");
+Directory.CreateDirectory(resultadoDirectory);
+resultadoFilePath = Path.Combine(resultadoDirectory, $"Editar{entityName}Resultado.cs");
+File.WriteAllText(resultadoFilePath, resultadoCode);
+
+// Input
+inputCode = GenerateInputToEditar(entityType, entityName);
+inputDirectory = Path.Combine(DiretorioModel, $"{entityName}s");
+Directory.CreateDirectory(inputDirectory);
+inputFilePath = Path.Combine(inputDirectory, $"Editar{entityName}Input.cs");
+File.WriteAllText(inputFilePath, inputCode);
+
+// Output
+outputCode = GenerateOutputToEditar(entityName);
+outputDirectory = Path.Combine(DiretorioModel, $"{entityName}s");
+Directory.CreateDirectory(outputDirectory);
+outputFilePath = Path.Combine(outputDirectory, $"Editar{entityName}Output.cs");
+File.WriteAllText(outputFilePath, outputCode);
+
+//CRUD: Deletar (Executor/Requisicao/Resultado/Input/Output)
+// Executor
+executorCode = GenerateExecutorToDeletar(entityName, namespaceName);
+executorDirectory = Path.Combine(DiretorioExecutores, $"{entityName}s");
+Directory.CreateDirectory(executorDirectory);
+executorFilePath = Path.Combine(executorDirectory, $"Deletar{entityName}Executor.cs");
+File.WriteAllText(executorFilePath, executorCode);
+
+// Requisicao
+requisicaoCode = GenerateRequisicaoToDeletar(entityType, entityName);
+requisicaoDirectory = Path.Combine(DiretorioRequisicao, $"{entityName}s");
+Directory.CreateDirectory(requisicaoDirectory);
+requisicaoFilePath = Path.Combine(requisicaoDirectory, $"Deletar{entityName}Requisicao.cs");
+File.WriteAllText(requisicaoFilePath, requisicaoCode);
+
+// Resultado
+resultadoCode = GenerateResultadoToDeletar(entityName);
+resultadoDirectory = Path.Combine(DiretorioResultado, $"{entityName}s");
+Directory.CreateDirectory(resultadoDirectory);
+resultadoFilePath = Path.Combine(resultadoDirectory, $"Deletar{entityName}Resultado.cs");
+File.WriteAllText(resultadoFilePath, resultadoCode);
+
+// Input
+inputCode = GenerateInputToDeletar(entityType, entityName);
+inputDirectory = Path.Combine(DiretorioModel, $"{entityName}s");
+Directory.CreateDirectory(inputDirectory);
+inputFilePath = Path.Combine(inputDirectory, $"Deletar{entityName}Input.cs");
+File.WriteAllText(inputFilePath, inputCode);
+
+// Output
+outputCode = GenerateOutputToDeletar(entityName);
+outputDirectory = Path.Combine(DiretorioModel, $"{entityName}s");
+Directory.CreateDirectory(outputDirectory);
+outputFilePath = Path.Combine(outputDirectory, $"Deletar{entityName}Output.cs");
+File.WriteAllText(outputFilePath, outputCode);
 
 
+string GenerateController(string entityName, string namespaceName)
+{
+    StringBuilder sb = new StringBuilder();
 
-var assemblyPath = @"path_to_your_assembly.dll"; // Replace with your DLL path
-Assembly assembly = Assembly.LoadFrom(assemblyPath);
+    // Using Directives
+    sb.AppendLine("using " + namespaceName + ".Aplicacao.Requisicoes." + entityName + ";");
+    sb.AppendLine("using " + namespaceName + ".Aplicacao.Resultados." + entityName + ";");
+    sb.AppendLine("using " + namespaceName + ".Extensions;");
+    sb.AppendLine("using " + namespaceName + ".Models." + entityName + ";");
+    sb.AppendLine("using Microsoft.AspNetCore.Http;");
+    sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
+    sb.AppendLine("using System.Threading;");
+    sb.AppendLine("using System.Threading.Tasks;\n");
 
-Type entityType = assembly.GetType("InspecaoWebAPI.DominioEntityFramework.Entidades.StatusRecomendacao");
+    // Namespace & Controller
+    sb.AppendLine($"namespace {namespaceName}.Controllers");
+    sb.AppendLine("{");
 
-Console.WriteLine(GenerateDTO(entityType));
+    sb.AppendFormat("    public class {0}Controller : ApiController\n", entityName);
+    sb.AppendLine("    {");
 
+    string[] actions = { 
+        //"Listar",
+        "Obter", 
+        "Excluir", 
+        "Inserir",
+        "Editar"
+    };
+
+    foreach (var action in actions)
+    {
+        string httpVerb;
+        switch (action)
+        {
+            case "Listar": httpVerb = "HttpGet"; break;
+            case "Obter": httpVerb = "HttpGet"; break;
+            case "Excluir": httpVerb = "HttpDelete"; break;
+            case "Inserir": httpVerb = "HttpPost"; break;
+            default: httpVerb = "HttpPut"; break;
+        }
+
+        sb.AppendFormat("        [{0}(\"api/[controller]/{1}{2}\")]\n", httpVerb, action, entityName);
+        sb.AppendFormat("        [ProducesResponseType(typeof({0}{1}Output), StatusCodes.Status200OK)]\n", action, entityName);
+        sb.AppendFormat("        public async Task<ObjectResult> {0}{1}({0}{1}Input input, CancellationToken cancellationToken)\n", action, entityName);
+        sb.AppendLine("        {");
+
+        sb.AppendFormat("            {0}{1}Requisicao requisicao = new {0}{1}Requisicao()\n", action, entityName);
+        sb.AppendLine("            {");
+        sb.AppendFormat("                Id{0} = input.Id{0},\n", entityName);
+        sb.AppendLine("                IdUsuario = User.Identity.ObterIdUsuario(),");
+        sb.AppendLine("            };");
+        sb.AppendLine();
+
+        sb.AppendFormat("            {0}{1}Resultado resultado = await Mediator.Send(requisicao, cancellationToken);\n\n", action, entityName);
+
+        sb.AppendFormat("            {0}{1}Output output = new {0}{1}Output()\n", action, entityName);
+        sb.AppendLine("            {");
+        sb.AppendFormat("                {0} = resultado.{0}\n", entityName);
+        sb.AppendLine("            };");
+        sb.AppendLine();
+
+        sb.AppendLine("            return new ObjectResult(output)");
+        sb.AppendLine("            {");
+        sb.AppendLine("                StatusCode = StatusCodes.Status200OK,");
+        sb.AppendLine("            };");
+        sb.AppendLine("        }\n");
+    }
+
+    sb.AppendLine("    }");
+    sb.AppendLine("}");
+
+    return sb.ToString();
+}
+
+string GenerateExecutorToObter(string entityName, string namespaceName)
+{
+    StringBuilder sb = new StringBuilder();
+
+    // Using Directives
+    sb.AppendLine($"using {namespaceName}.Aplicacao.Dtos.{entityName}s;");
+    sb.AppendLine($"using {namespaceName}.Aplicacao.RepositoriosEntityFramework;");
+    sb.AppendLine($"using {namespaceName}.Aplicacao.Requisicoes.{entityName}s;");
+    sb.AppendLine($"using {namespaceName}.Aplicacao.Resultados.{entityName}s;");
+    sb.AppendLine("using System.Threading;");
+    sb.AppendLine("using System.Threading.Tasks;\n");
+
+    // Namespace
+    sb.AppendLine($"namespace {namespaceName}.Aplicacao.Executores.{entityName}s");
+    sb.AppendLine("{");
+
+    // Class definition
+    sb.AppendFormat("    public class Obter{0}Executor : IRequestHandler<Obter{0}Requisicao, Obter{0}Resultado>\n", entityName);
+    sb.AppendLine("    {");
+    sb.AppendFormat("        private readonly I{0}Repositorio {1}Repositorio;\n", entityName, entityName.ToLower());
+    sb.AppendLine("        private readonly IMapper mapper;\n");
+
+    // Constructor
+    sb.AppendFormat("        public Obter{0}Executor(I{0}Repositorio {1}Repositorio, IMapper mapper)\n", entityName, entityName.ToLower());
+    sb.AppendLine("        {");
+    sb.AppendFormat("            this.{0}Repositorio = {0}Repositorio;\n", entityName.ToLower());
+    sb.AppendLine("            this.mapper = mapper;");
+    sb.AppendLine("        }\n");
+
+    // Handle method
+    sb.AppendFormat("        public Task<Obter{0}Resultado> Handle(Obter{0}Requisicao request, CancellationToken cancellationToken)\n", entityName);
+    sb.AppendLine("        {");
+    sb.AppendFormat("            var {0} = {1}Repositorio.ObterPorId(request.Id);\n", entityName.ToLower(), entityName.ToLower());
+    sb.AppendFormat("            var {0}Dto = mapper.Map<{0}Dto>({1});\n", entityName, entityName.ToLower());
+
+    sb.AppendFormat("            return Task.FromResult(new Obter{0}Resultado()\n", entityName);
+    sb.AppendLine("            {");
+    sb.AppendFormat("                {0} = {1}Dto\n", entityName, entityName.ToLower());
+    sb.AppendLine("            });");
+    sb.AppendLine("        }");
+
+    // End Class and Namespace
+    sb.AppendLine("    }");
+    sb.AppendLine("}");
+
+    return sb.ToString();
+}
 
 string GenerateInterfaceRepositorioAplicacao(string entityName, string namespaceName)
 {
@@ -293,62 +577,75 @@ string GenerateExecutorToInsert(string entityName, string namespaceBase)
     return sb.ToString();
 }
 
-string GenerateRequisicaoAndResultadoToListarPorVariavel(string assemblyPath, string entityName, string variableName)
+string GenerateRequisicaoToObter(string entidadeNome)
 {
-    // Carregar o assembly
-    Assembly loadedAssembly = Assembly.LoadFile(assemblyPath);
-
-    // Obter o tipo da entidade
-    Type entityType = loadedAssembly.GetType(entityName);
-
-    if (entityType == null)
-    {
-        throw new InvalidOperationException($"Tipo {entityName} não encontrado no assembly {assemblyPath}.");
-    }
-
-    // Verificar se a entidade tem a propriedade específica
-    PropertyInfo propertyInfo = entityType.GetProperty(variableName);
-    if (propertyInfo == null)
-    {
-        throw new InvalidOperationException($"Propriedade {variableName} não encontrada em {entityName}.");
-    }
-
-    // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
-    requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes");
+
+    // Generate Requisicao Code
+    requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entidadeNome}s");
     requisicaoCode.AppendLine("{");
-    requisicaoCode.AppendLine($"    public class Listar{entityName}Por{variableName}Requisicao");
+    requisicaoCode.AppendFormat("    public class Obter{0}Requisicao\n", entidadeNome);
     requisicaoCode.AppendLine("    {");
-    requisicaoCode.AppendLine($"        public {propertyInfo.PropertyType.Name} {variableName} {{ get; set; }}");
+    requisicaoCode.AppendLine($"       public int Id{entidadeNome} {{ get; set; }}");
+    requisicaoCode.AppendLine("        public int IdUsuario { get; set; }");
+    requisicaoCode.AppendLine("        public int IdEmpreendimento { get; set; }");
     requisicaoCode.AppendLine("    }");
     requisicaoCode.AppendLine("}");
 
-    // Construir código para Resultado
+    return requisicaoCode.ToString();
+}
+
+string GenerateInputToObter(string entidadeNome)
+{
+    StringBuilder inputCode = new StringBuilder();
+
+    // Generate Requisicao Code
+    inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    inputCode.AppendLine("{");
+    inputCode.AppendFormat("    public class Obter{0}Input\n", entidadeNome);
+    inputCode.AppendLine("    {");
+    inputCode.AppendLine($"       public int Id{entidadeNome} {{ get; set; }}");
+    inputCode.AppendLine("        public int IdEmpreendimento { get; set; }");
+    inputCode.AppendLine("    }");
+    inputCode.AppendLine("}");
+
+    return inputCode.ToString();
+}
+
+string GenerateResultadoToObter(string entidadeNome)
+{
     StringBuilder resultadoCode = new StringBuilder();
-    resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados");
+
+    // Generate Resultado Code
+    resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados.{entidadeNome}s");
     resultadoCode.AppendLine("{");
-    resultadoCode.AppendLine($"    public class Listar{entityName}Por{variableName}Resultado");
+    resultadoCode.AppendFormat("    public class Obter{0}Resultado\n", entidadeNome);
     resultadoCode.AppendLine("    {");
-    resultadoCode.AppendLine($"        public List<{entityType.Name}> Itens {{ get; set; }} = new List<{entityType.Name}>();");
+    resultadoCode.AppendLine($"        public {entidadeNome}Dto {entidadeNome} {{ get; set; }}");
     resultadoCode.AppendLine("    }");
     resultadoCode.AppendLine("}");
 
-    return requisicaoCode.ToString() + "\n\n" + resultadoCode.ToString();
+    return resultadoCode.ToString();
 }
 
-string GenerateRequisicaoAndResultadoToDeletar(string assemblyPath, string entityName)
+string GenerateOutputToObter(string entidadeNome)
 {
-    // Carregar o assembly
-    Assembly loadedAssembly = Assembly.LoadFile(assemblyPath);
+    StringBuilder outputCode = new StringBuilder();
 
-    // Obter o tipo da entidade
-    Type entityType = loadedAssembly.GetType(entityName);
+    // Generate Output Code
+    outputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    outputCode.AppendLine("{");
+    outputCode.AppendFormat("    public class Obter{0}Output\n", entidadeNome);
+    outputCode.AppendLine("    {");
+    outputCode.AppendLine($"        public {entidadeNome}Dto {entidadeNome} {{ get; set; }}");
+    outputCode.AppendLine("    }");
+    outputCode.AppendLine("}");
 
-    if (entityType == null)
-    {
-        throw new InvalidOperationException($"Tipo {entityName} não encontrado no assembly {assemblyPath}.");
-    }
+    return outputCode.ToString();
+}
 
+string GenerateRequisicaoToDeletar(Type entityType, string entityName)
+{
     // Identificar a chave primária da entidade
     PropertyInfo primaryKey = entityType.GetProperties().FirstOrDefault(p => p.Name.StartsWith("Id")); // Este é um suposto padrão; ajuste conforme necessário
 
@@ -359,14 +656,59 @@ string GenerateRequisicaoAndResultadoToDeletar(string assemblyPath, string entit
 
     // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
-    requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes");
+    requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entityName}s");
     requisicaoCode.AppendLine("{");
     requisicaoCode.AppendLine($"    public class Deletar{entityName}Requisicao");
     requisicaoCode.AppendLine("    {");
-    requisicaoCode.AppendLine($"        public {primaryKey.PropertyType.Name} {primaryKey.Name} {{ get; set; }}");
+    requisicaoCode.AppendLine($"        public {primaryKey.PropertyType.Name.ToLower().Replace("32", "")} {primaryKey.Name} {{ get; set; }}");
     requisicaoCode.AppendLine("    }");
     requisicaoCode.AppendLine("}");
 
+    return requisicaoCode.ToString();
+}
+
+
+string GenerateInputToDeletar(Type entityType, string entityName)
+{
+    // Identificar a chave primária da entidade
+    PropertyInfo primaryKey = entityType.GetProperties().FirstOrDefault(p => p.Name.StartsWith("Id")); // Este é um suposto padrão; ajuste conforme necessário
+
+    if (primaryKey == null)
+    {
+        throw new InvalidOperationException($"Não foi possível identificar a chave primária para {entityName}.");
+    }
+
+    // Construir código para Input
+    StringBuilder inputCode = new StringBuilder();
+    inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    inputCode.AppendLine("{");
+    inputCode.AppendLine($"    public class Deletar{entityName}Input");
+    inputCode.AppendLine("    {");
+    inputCode.AppendLine($"        public {primaryKey.PropertyType.Name.ToLower().Replace("32", "")} {primaryKey.Name} {{ get; set; }}");
+    inputCode.AppendLine("    }");
+    inputCode.AppendLine("}");
+
+    return inputCode.ToString();
+}
+string GenerateOutputToDeletar(string entityName)
+{
+    // Construir código para Output
+    StringBuilder outputCode = new StringBuilder();
+    outputCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Outputs");
+    outputCode.AppendLine("{");
+    outputCode.AppendLine($"    public class Deletar{entityName}Output");
+    outputCode.AppendLine("    {");
+    outputCode.AppendLine($"        public bool Sucesso {{ get; set; }}");
+    outputCode.AppendLine($"        public string Mensagem {{ get; set; }}");
+    outputCode.AppendLine("    }");
+    outputCode.AppendLine("}");
+
+    return outputCode.ToString();
+}
+
+
+string GenerateResultadoToDeletar(string entityName)
+{
     // Construir código para Resultado
     StringBuilder resultadoCode = new StringBuilder();
     resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados");
@@ -378,80 +720,17 @@ string GenerateRequisicaoAndResultadoToDeletar(string assemblyPath, string entit
     resultadoCode.AppendLine("    }");
     resultadoCode.AppendLine("}");
 
-    return requisicaoCode.ToString() + "\n\n" + resultadoCode.ToString();
+    return resultadoCode.ToString();
 }
 
-
-string GenerateRequisicaoAndResultadoToListarPorEmpreendimento(string assemblyPath, string entityName)
+string GenerateRequisicaoToEditar(Type entityType, string entityName)
 {
-    // Carregar o assembly
-    Assembly loadedAssembly = Assembly.LoadFile(assemblyPath);
-
-    // Obter o tipo da entidade
-    Type entityType = loadedAssembly.GetType(entityName);
-
-    if (entityType == null)
-    {
-        throw new InvalidOperationException($"Tipo {entityName} não encontrado no assembly {assemblyPath}.");
-    }
-
     // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
-    requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes");
-    requisicaoCode.AppendLine("{");
-    requisicaoCode.AppendLine($"    public class Listar{entityName}PorEmpreendimentoRequisicao");
-    requisicaoCode.AppendLine("    {");
-    requisicaoCode.AppendLine($"        public int IdEmpreendimento {{ get; set; }}");
-    requisicaoCode.AppendLine("    }");
-    requisicaoCode.AppendLine("}");
-
-    // Construir código para Resultado
-    StringBuilder resultadoCode = new StringBuilder();
-    resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados");
-    resultadoCode.AppendLine("{");
-    resultadoCode.AppendLine($"    public class Listar{entityName}PorEmpreendimentoResultado");
-    resultadoCode.AppendLine("    {");
-    resultadoCode.AppendLine($"        public bool Sucesso {{ get; set; }}");
-    resultadoCode.AppendLine($"        public string Mensagem {{ get; set; }}");
-    resultadoCode.AppendLine($"        public List<{entityName}DTO> Itens {{ get; set; }} = new List<{entityName}DTO>();");
-    resultadoCode.AppendLine("    }");
-    resultadoCode.AppendLine("}");
-
-    return requisicaoCode.ToString() + "\n\n" + resultadoCode.ToString();
-}
-
-
-
-string GenerateRequisicaoAndResultadoToEditar(string assemblyPath, string entityName)
-{
-    // Carregar o assembly
-    Assembly loadedAssembly = Assembly.LoadFile(assemblyPath);
-
-    // Obter o tipo da entidade
-    Type entityType = loadedAssembly.GetType(entityName);
-
-    if (entityType == null)
-    {
-        throw new InvalidOperationException($"Tipo {entityName} não encontrado no assembly {assemblyPath}.");
-    }
-
-    // Construir código para Requisicao
-    StringBuilder requisicaoCode = new StringBuilder();
-    requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes");
+    requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entityName}s");
     requisicaoCode.AppendLine("{");
     requisicaoCode.AppendLine($"    public class Editar{entityName}Requisicao");
     requisicaoCode.AppendLine("    {");
-
-    // Construir código para Resultado
-    StringBuilder resultadoCode = new StringBuilder();
-    resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados");
-    resultadoCode.AppendLine("{");
-    resultadoCode.AppendLine($"    public class Editar{entityName}Resultado");
-    resultadoCode.AppendLine("    {");
-    resultadoCode.AppendLine($"        public bool Sucesso {{ get; set; }}");
-    resultadoCode.AppendLine($"        public string Mensagem {{ get; set; }}");
-    resultadoCode.AppendLine("    }");
-    resultadoCode.AppendLine("}");
 
     foreach (PropertyInfo property in entityType.GetProperties())
     {
@@ -471,40 +750,81 @@ string GenerateRequisicaoAndResultadoToEditar(string assemblyPath, string entity
     requisicaoCode.AppendLine("    }");
     requisicaoCode.AppendLine("}");
 
-    return requisicaoCode.ToString() + "\n\n" + resultadoCode.ToString();
+    return requisicaoCode.ToString();
 }
 
 
 
-string GenerateRequisicaoAndResultadoToInserir(string assemblyPath, string entityName)
+string GenerateInputToEditar(Type entityType, string entityName)
 {
-    // Carregar o assembly
-    Assembly loadedAssembly = Assembly.LoadFile(assemblyPath);
+    // Construir código para Input
+    StringBuilder inputCode = new StringBuilder();
+    inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    inputCode.AppendLine("{");
+    inputCode.AppendLine($"    public class Editar{entityName}Input");
+    inputCode.AppendLine("    {");
 
-    // Obter o tipo da entidade
-    Type entityType = loadedAssembly.GetType(entityName);
-
-    if (entityType == null)
+    foreach (PropertyInfo property in entityType.GetProperties())
     {
-        throw new InvalidOperationException($"Tipo {entityName} não encontrado no assembly {assemblyPath}.");
+        // Excluir apenas a DataExclusao
+        if (property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        string propertyType = property.PropertyType.Name;
+        string propertyName = property.Name;
+
+        // Adicionar propriedade ao código de Requisicao
+        inputCode.AppendLine($"        public {propertyType} {propertyName} {{ get; set; }}");
     }
 
+    inputCode.AppendLine("    }");
+    inputCode.AppendLine("}");
+
+    return inputCode.ToString();
+}
+
+string GenerateResultadoToEditar(string entityName)
+{
+    // Construir código para Resultado
+    StringBuilder resultadoCode = new StringBuilder();
+    resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados.{entityName}s");
+    resultadoCode.AppendLine("{");
+    resultadoCode.AppendLine($"    public class Editar{entityName}Resultado");
+    resultadoCode.AppendLine("    {");
+    resultadoCode.AppendLine($"        public bool Sucesso {{ get; set; }}");
+    resultadoCode.AppendLine($"        public string Mensagem {{ get; set; }}");
+    resultadoCode.AppendLine("    }");
+    resultadoCode.AppendLine("}");
+
+    return resultadoCode.ToString();
+}
+
+string GenerateOutputToEditar(string entityName)
+{
+    // Construir código para Output
+    StringBuilder outputCode = new StringBuilder();
+    outputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    outputCode.AppendLine("{");
+    outputCode.AppendLine($"    public class Editar{entityName}Output");
+    outputCode.AppendLine("    {");
+    outputCode.AppendLine($"        public bool Sucesso {{ get; set; }}");
+    outputCode.AppendLine($"        public string Mensagem {{ get; set; }}");
+    outputCode.AppendLine("    }");
+    outputCode.AppendLine("}");
+
+    return outputCode.ToString();
+}
+
+string GenerateRequisicaoToInserir(Type entityType, string entityName)
+{
     // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
-    requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes");
+    requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entityName}s");
     requisicaoCode.AppendLine("{");
     requisicaoCode.AppendLine($"    public class Inserir{entityName}Requisicao");
     requisicaoCode.AppendLine("    {");
-
-    // Construir código para Resultado
-    StringBuilder resultadoCode = new StringBuilder();
-    resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados");
-    resultadoCode.AppendLine("{");
-    resultadoCode.AppendLine($"    public class Inserir{entityName}Resultado");
-    resultadoCode.AppendLine("    {");
-    resultadoCode.AppendLine($"        public int Id{entityName} {{ get; set; }}");
-    resultadoCode.AppendLine("    }");
-    resultadoCode.AppendLine("}");
 
     foreach (PropertyInfo property in entityType.GetProperties())
     {
@@ -524,7 +844,66 @@ string GenerateRequisicaoAndResultadoToInserir(string assemblyPath, string entit
     requisicaoCode.AppendLine("    }");
     requisicaoCode.AppendLine("}");
 
-    return requisicaoCode.ToString() + "\n\n" + resultadoCode.ToString();
+    return requisicaoCode.ToString();
+}
+
+string GenerateInputToInserir(Type entityType, string entityName)
+{
+    // Construir código para Input
+    StringBuilder inputCode = new StringBuilder();
+    inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    inputCode.AppendLine("{");
+    inputCode.AppendLine($"    public class Inserir{entityName}Input");
+    inputCode.AppendLine("    {");
+
+    foreach (PropertyInfo property in entityType.GetProperties())
+    {
+        // Excluir a chave primária e a DataExclusao
+        if (property.Name.Equals($"Id{entityName}", StringComparison.OrdinalIgnoreCase) || property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        string propertyType = property.PropertyType.Name;
+        string propertyName = property.Name;
+
+        // Adicionar propriedade ao código de Requisicao
+        inputCode.AppendLine($"        public {propertyType} {propertyName} {{ get; set; }}");
+    }
+
+    inputCode.AppendLine("    }");
+    inputCode.AppendLine("}");
+
+    return requisicaoCode.ToString();
+}
+
+string GenerateResultadoToInserir(string entityName)
+{
+    // Construir código para Resultado
+    StringBuilder resultadoCode = new StringBuilder();
+    resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados.{entityName}s");
+    resultadoCode.AppendLine("{");
+    resultadoCode.AppendLine($"    public class Inserir{entityName}Resultado");
+    resultadoCode.AppendLine("    {");
+    resultadoCode.AppendLine($"        public int Id{entityName} {{ get; set; }}");
+    resultadoCode.AppendLine("    }");
+    resultadoCode.AppendLine("}");
+
+    return resultadoCode.ToString();
+}
+string GenerateOutputToInserir(string entityName)
+{
+    // Construir código para Output
+    StringBuilder outputCode = new StringBuilder();
+    outputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    outputCode.AppendLine("{");
+    outputCode.AppendLine($"    public class Inserir{entityName}Output");
+    outputCode.AppendLine("    {");
+    outputCode.AppendLine($"        public int Id{entityName} {{ get; set; }}");
+    outputCode.AppendLine("    }");
+    outputCode.AppendLine("}");
+
+    return outputCode.ToString();
 }
 
 string GenerateDTO(Type entityType)
