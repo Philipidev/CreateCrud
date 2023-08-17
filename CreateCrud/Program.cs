@@ -8,6 +8,7 @@ string DiretorioInterfaceRepositorioAplicacao = @"D:\Repositorios\Sysdam\Inspeca
 string DiretorioRequisicao = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Requisicoes";
 string DiretorioResultado = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.Aplicacao\Resultados";
 string DiretorioRepositorioInfraestrutura = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.InfraestruturaEntityFramework\BancoDados\RepositoriosEntityFramework";
+string DiretorioController = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI\Controllers";
 
 string namespaceName = "InspecaoWebAPI";
 string entityName = "PrazosGut";
@@ -190,15 +191,22 @@ Directory.CreateDirectory(outputDirectory);
 outputFilePath = Path.Combine(outputDirectory, $"Deletar{entityName}Output.cs");
 File.WriteAllText(outputFilePath, outputCode);
 
+//Controller
+string controllerCode = GenerateController(entityName, namespaceName);
+string controllerDirectory = Path.Combine(DiretorioController);
+Directory.CreateDirectory(controllerDirectory);
+string controllerFilePath = Path.Combine(controllerDirectory, $"{entityName}Controller.cs");
+File.WriteAllText(controllerFilePath, controllerCode);
+
 string GenerateController(string entityName, string namespaceName)
 {
     StringBuilder sb = new StringBuilder();
 
     // Using Directives
-    sb.AppendLine("using " + namespaceName + ".Aplicacao.Requisicoes." + entityName + ";");
-    sb.AppendLine("using " + namespaceName + ".Aplicacao.Resultados." + entityName + ";");
+    sb.AppendLine($"using {namespaceName}.Aplicacao.Requisicoes.{entityName}s;");
+    sb.AppendLine($"using {namespaceName}.Aplicacao.Resultados.{entityName}s;");
     sb.AppendLine("using " + namespaceName + ".Extensions;");
-    sb.AppendLine("using " + namespaceName + ".Models." + entityName + ";");
+    sb.AppendLine($"using {namespaceName}.Models.{entityName}s;");
     sb.AppendLine("using Microsoft.AspNetCore.Http;");
     sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
     sb.AppendLine("using System.Threading;");
@@ -216,7 +224,7 @@ string GenerateController(string entityName, string namespaceName)
     string[] actions = {
         //"Listar",
         "Obter",
-        "Excluir",
+        "Deletar",
         "Inserir",
         "Editar"
     };
@@ -228,8 +236,9 @@ string GenerateController(string entityName, string namespaceName)
         {
             case "Listar": httpVerb = "HttpGet"; break;
             case "Obter": httpVerb = "HttpGet"; break;
-            case "Excluir": httpVerb = "HttpDelete"; break;
+            case "Deletar": httpVerb = "HttpDelete"; break;
             case "Inserir": httpVerb = "HttpPost"; break;
+            case "Editar": httpVerb = "HttpPut"; break;
             default: httpVerb = "HttpPut"; break;
         }
 
@@ -240,8 +249,35 @@ string GenerateController(string entityName, string namespaceName)
 
         sb.AppendFormat("            {0}{1}Requisicao requisicao = new {0}{1}Requisicao()\n", action, entityName);
         sb.AppendLine("            {");
-        sb.AppendFormat("                Id{0} = input.Id{0},\n", entityName);
+        if (action is "Obter" or "Editar" or "Deletar")
+            sb.AppendFormat("                Id{0} = input.Id{0},\n", entityName);
+        if (action is "Editar" or "Inserir")
+        {
+            PropertyInfo primaryKey = entityType.GetProperties().FirstOrDefault(p => p.Name.StartsWith("Id")); // Este é um suposto padrão; ajuste conforme necessário
+
+            foreach (PropertyInfo property in entityType.GetProperties())
+            {
+                if (primaryKey.Name == property.Name)
+                    continue;
+
+                // Excluir apenas a DataExclusao
+                if (property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string propertyName = property.Name;
+
+                if (propertyName == "IdEmpreendimento" || propertyName == "IdUsuario")
+                    continue;
+
+                // Adicionar propriedade ao código de Requisicao
+                sb.AppendLine($"                {propertyName} = input.{propertyName},");
+            }
+
+        }
         sb.AppendLine("                IdUsuario = User.Identity.ObterIdUsuario(),");
+        sb.AppendLine("                IdEmpreendimento = input.IdEmpreendimento,");
         sb.AppendLine("            };");
         sb.AppendLine();
 
@@ -249,7 +285,10 @@ string GenerateController(string entityName, string namespaceName)
 
         sb.AppendFormat("            {0}{1}Output output = new {0}{1}Output()\n", action, entityName);
         sb.AppendLine("            {");
-        sb.AppendFormat("                {0} = resultado.{0}\n", entityName);
+        if (action is "Obter" or "Inserir")
+            sb.AppendFormat("                {0} = resultado.{0},\n", entityName);
+        if( action is "Editar" or "Deletar")
+            sb.AppendFormat("                Id{0} = resultado.Id{0},\n", entityName);
         sb.AppendLine("            };");
         sb.AppendLine();
 
@@ -277,8 +316,8 @@ string GenerateExecutorToObter(string entityName, string namespaceName)
     sb.AppendLine($"using {namespaceName}.Aplicacao.Resultados.{entityName}s;");
     sb.AppendLine("using System.Threading;");
     sb.AppendLine("using System;");
-    sb.AppendLine("using System.Collections.Generic;\n");
     sb.AppendLine("using System.Threading.Tasks;");
+    sb.AppendLine("using System.Collections.Generic;\n");
 
     // Namespace
     sb.AppendLine($"namespace {namespaceName}.Aplicacao.Executores.{entityName}s");
@@ -300,12 +339,12 @@ string GenerateExecutorToObter(string entityName, string namespaceName)
     // Handle method
     sb.AppendFormat("        public Task<Obter{0}Resultado> Handle(Obter{0}Requisicao request, CancellationToken cancellationToken)\n", entityName);
     sb.AppendLine("        {");
-    sb.AppendFormat("            var {0} = {1}Repositorio.ObterPorId(request.Id);\n", entityName.ToLower(), entityName.ToLower());
+    sb.AppendFormat("            var {0} = {1}Repositorio.ObterPorId(request.Id{2});\n", entityName.ToLower(), entityName.ToLower(), entityName);
     sb.AppendFormat("            var {0}Dto = mapper.Map<{0}Dto>({1});\n", entityName, entityName.ToLower());
 
     sb.AppendFormat("            return Task.FromResult(new Obter{0}Resultado()\n", entityName);
     sb.AppendLine("            {");
-    sb.AppendFormat("                {0} = {1}Dto\n", entityName, entityName.ToLower());
+    sb.AppendFormat("                {0} = {0}Dto\n", entityName);
     sb.AppendLine("            });");
     sb.AppendLine("        }");
 
@@ -447,8 +486,10 @@ string GenerateExecutorToDeletar(string entityName, string namespaceBase)
     sb.AppendLine($"using {namespaceBase}.Aplicacao.Resultados.{entityName}s;");
     sb.AppendLine($"using System.Threading;");
     sb.AppendLine("using System;");
-    sb.AppendLine("using System.Collections.Generic;\n");
     sb.AppendLine($"using System.Threading.Tasks;");
+    sb.AppendLine("using InspecaoWebAPI.DominioEntityFramework.Entidades;");
+    sb.AppendLine("using InspecaoWebAPI.Aplicacao.Exceptions;");
+    sb.AppendLine("using System.Collections.Generic;\n");
 
     sb.AppendLine($"\nnamespace {namespaceBase}.Aplicacao.Executores.{entityName}s");
     sb.AppendLine("{");
@@ -468,19 +509,14 @@ string GenerateExecutorToDeletar(string entityName, string namespaceBase)
     sb.AppendLine($"            var entity{entityName} = {entityName.ToLower()}Repositorio.ObterPorId(request.Id{entityName});");
     sb.AppendLine($"            if (entity{entityName} == null)");
     sb.AppendLine("            {");
-    sb.AppendLine($"                return Task.FromResult(new {resultadoName}()");
-    sb.AppendLine("                {");
-    sb.AppendLine($"                    IsSuccess = false,");
-    sb.AppendLine($"                    Message = \"{entityName} não encontrada.\"");
-    sb.AppendLine("                });");
+    sb.AppendLine($"                throw new EntidadeNaoEncontradaException();");
     sb.AppendLine("            }");
 
     sb.AppendLine($"            {entityName.ToLower()}Repositorio.Deletar(entity{entityName});");
 
     sb.AppendLine($"            return Task.FromResult(new {resultadoName}()");
     sb.AppendLine("            {");
-    sb.AppendLine($"                IsSuccess = true,");
-    sb.AppendLine($"                Message = \"{entityName} deletada com sucesso.\"");
+    sb.AppendLine($"                Id{entityName} = request.Id{entityName},");
     sb.AppendLine("            });");
     sb.AppendLine("        }");
     sb.AppendLine("    }");
@@ -504,8 +540,10 @@ string GenerateExecutorToEditar(string entityName, string namespaceBase)
     sb.AppendLine($"using {namespaceBase}.Aplicacao.Resultados.{entityName}s;");
     sb.AppendLine($"using System.Threading;");
     sb.AppendLine("using System;");
-    sb.AppendLine("using System.Collections.Generic;\n");
+    sb.AppendLine("using InspecaoWebAPI.DominioEntityFramework.Entidades;");
     sb.AppendLine($"using System.Threading.Tasks;");
+    sb.AppendLine("using InspecaoWebAPI.Aplicacao.Exceptions;");
+    sb.AppendLine("using System.Collections.Generic;\n");
 
     sb.AppendLine($"\nnamespace {namespaceBase}.Aplicacao.Executores.{entityName}s");
     sb.AppendLine("{");
@@ -522,23 +560,18 @@ string GenerateExecutorToEditar(string entityName, string namespaceBase)
 
     sb.AppendLine($"        public Task<{resultadoName}> Handle({requisicaoName} request, CancellationToken cancellationToken)");
     sb.AppendLine("        {");
-    sb.AppendLine($"            var entity{entityName} = {entityName.ToLower()}Repositorio.BuscarPorId(request.Id);");
+    sb.AppendLine($"            var entity{entityName} = {entityName.ToLower()}Repositorio.ObterPorId(request.Id{entityName});");
     sb.AppendLine($"            if (entity{entityName} == null)");
     sb.AppendLine("            {");
-    sb.AppendLine($"                return Task.FromResult(new {resultadoName}()");
-    sb.AppendLine("                {");
-    sb.AppendLine($"                    IsSuccess = false,");
-    sb.AppendLine($"                    Message = \"{entityName} não encontrada.\"");
-    sb.AppendLine("                });");
+    sb.AppendLine($"                throw new EntidadeNaoEncontradaException();");
     sb.AppendLine("            }");
 
     sb.AppendLine($"            mapper.Map(request, entity{entityName});");
-    sb.AppendLine($"            {entityName.ToLower()}Repositorio.Atualizar(entity{entityName});");
+    sb.AppendLine($"            {entityName.ToLower()}Repositorio.Editar(entity{entityName});");
 
     sb.AppendLine($"            return Task.FromResult(new {resultadoName}()");
     sb.AppendLine("            {");
-    sb.AppendLine($"                IsSuccess = true,");
-    sb.AppendLine($"                Message = \"{entityName} editada com sucesso.\"");
+    sb.AppendLine($"                Id{entityName} = request.Id{entityName},");
     sb.AppendLine("            });");
     sb.AppendLine("        }");
     sb.AppendLine("    }");
@@ -563,6 +596,7 @@ string GenerateExecutorToInsert(string entityName, string namespaceBase)
     sb.AppendLine($"using System.Threading;");
     sb.AppendLine($"using System.Threading.Tasks;");
     sb.AppendLine("using System;");
+    sb.AppendLine("using InspecaoWebAPI.DominioEntityFramework.Entidades;");
     sb.AppendLine("using System.Collections.Generic;\n");
 
     sb.AppendLine($"\nnamespace {namespaceBase}.Aplicacao.Executores.{entityName}s");
@@ -581,11 +615,10 @@ string GenerateExecutorToInsert(string entityName, string namespaceBase)
     sb.AppendLine($"        public Task<{resultadoName}> Handle({requisicaoName} request, CancellationToken cancellationToken)");
     sb.AppendLine("        {");
     sb.AppendLine($"            var entity{entityName} = mapper.Map<{entityName}>(request);");
-    sb.AppendLine($"            {entityName.ToLower()}Repositorio.Inserir(entity{entityName});");
+    sb.AppendLine($"            var res = {entityName.ToLower()}Repositorio.Inserir(entity{entityName});");
     sb.AppendLine($"            return Task.FromResult(new {resultadoName}()");
     sb.AppendLine("            {");
-    sb.AppendLine($"                IsSuccess = true,");
-    sb.AppendLine($"                Message = \"{entityName} inserida com sucesso.\"");
+    sb.AppendLine($"                {entityName} = mapper.Map<{entityName}Dto>(res),");
     sb.AppendLine("            });");
     sb.AppendLine("        }");
     sb.AppendLine("    }");
@@ -600,10 +633,12 @@ string GenerateRequisicaoToObter(string entidadeNome)
 
     // Generate Requisicao Code
     requisicaoCode.AppendLine("using System;");
+    requisicaoCode.AppendLine("using MediatR;");
+    requisicaoCode.AppendLine($"using InspecaoWebAPI.Aplicacao.Resultados.{entityName}s;");
     requisicaoCode.AppendLine("using System.Collections.Generic;\n");
     requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entidadeNome}s");
     requisicaoCode.AppendLine("{");
-    requisicaoCode.AppendFormat("    public class Obter{0}Requisicao\n", entidadeNome);
+    requisicaoCode.AppendFormat("    public class Obter{0}Requisicao : IRequest<Obter{0}Resultado>\n", entidadeNome);
     requisicaoCode.AppendLine("    {");
     requisicaoCode.AppendLine($"       public int Id{entidadeNome} {{ get; set; }}");
     requisicaoCode.AppendLine("        public int IdUsuario { get; set; }");
@@ -621,7 +656,7 @@ string GenerateInputToObter(string entidadeNome)
     // Generate Requisicao Code
     inputCode.AppendLine("using System;");
     inputCode.AppendLine("using System.Collections.Generic;\n");
-    inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    inputCode.AppendLine($"namespace InspecaoWebAPI.Models.{entidadeNome}s");
     inputCode.AppendLine("{");
     inputCode.AppendFormat("    public class Obter{0}Input\n", entidadeNome);
     inputCode.AppendLine("    {");
@@ -639,6 +674,7 @@ string GenerateResultadoToObter(string entidadeNome)
 
     // Generate Resultado Code
     resultadoCode.AppendLine("using System;");
+    resultadoCode.AppendLine($"using InspecaoWebAPI.Aplicacao.Dtos.{entityName}s;");
     resultadoCode.AppendLine("using System.Collections.Generic;\n");
     resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados.{entidadeNome}s");
     resultadoCode.AppendLine("{");
@@ -657,8 +693,9 @@ string GenerateOutputToObter(string entidadeNome)
 
     // Generate Output Code
     outputCode.AppendLine("using System;");
+    outputCode.AppendLine($"using InspecaoWebAPI.Aplicacao.Dtos.{entityName}s;");
     outputCode.AppendLine("using System.Collections.Generic;\n");
-    outputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    outputCode.AppendLine($"namespace InspecaoWebAPI.Models.{entityName}s");
     outputCode.AppendLine("{");
     outputCode.AppendFormat("    public class Obter{0}Output\n", entidadeNome);
     outputCode.AppendLine("    {");
@@ -684,12 +721,16 @@ string GenerateRequisicaoToDeletar(Type entityType, string entityName)
     // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
     requisicaoCode.AppendLine("using System;");
+    requisicaoCode.AppendLine("using MediatR;");
+    requisicaoCode.AppendLine($"using InspecaoWebAPI.Aplicacao.Resultados.{entityName}s;");
     requisicaoCode.AppendLine("using System.Collections.Generic;\n");
     requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entityName}s");
     requisicaoCode.AppendLine("{");
-    requisicaoCode.AppendLine($"    public class Deletar{entityName}Requisicao");
+    requisicaoCode.AppendLine($"    public class Deletar{entityName}Requisicao : IRequest<Deletar{entityName}Resultado>");
     requisicaoCode.AppendLine("    {");
     requisicaoCode.AppendLine($"        public {typeName} {primaryKey.Name} {{ get; set; }}");
+    requisicaoCode.AppendLine($"        public int IdUsuario {{ get; set; }}");
+    requisicaoCode.AppendLine($"        public int IdEmpreendimento {{ get; set; }}");
     requisicaoCode.AppendLine("    }");
     requisicaoCode.AppendLine("}");
 
@@ -712,11 +753,12 @@ string GenerateInputToDeletar(Type entityType, string entityName)
     StringBuilder inputCode = new StringBuilder();
     inputCode.AppendLine("using System;");
     inputCode.AppendLine("using System.Collections.Generic;\n");
-    inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    inputCode.AppendLine($"namespace InspecaoWebAPI.Models.{entityName}s");
     inputCode.AppendLine("{");
     inputCode.AppendLine($"    public class Deletar{entityName}Input");
     inputCode.AppendLine("    {");
     inputCode.AppendLine($"        public {typeName} {primaryKey.Name} {{ get; set; }}");
+    inputCode.AppendLine($"        public int IdEmpreendimento {{ get; set; }}");
     inputCode.AppendLine("    }");
     inputCode.AppendLine("}");
 
@@ -728,12 +770,11 @@ string GenerateOutputToDeletar(string entityName)
     StringBuilder outputCode = new StringBuilder();
     outputCode.AppendLine("using System;");
     outputCode.AppendLine("using System.Collections.Generic;\n");
-    outputCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Outputs");
+    outputCode.AppendLine($"namespace InspecaoWebAPI.Models.{entityName}s");
     outputCode.AppendLine("{");
     outputCode.AppendLine($"    public class Deletar{entityName}Output");
     outputCode.AppendLine("    {");
-    outputCode.AppendLine($"        public bool Sucesso {{ get; set; }}");
-    outputCode.AppendLine($"        public string Mensagem {{ get; set; }}");
+    outputCode.AppendLine($"        public int Id{entityName} {{ get; set; }}");
     outputCode.AppendLine("    }");
     outputCode.AppendLine("}");
 
@@ -750,8 +791,7 @@ string GenerateResultadoToDeletar(string entityName)
     resultadoCode.AppendLine("{");
     resultadoCode.AppendLine($"    public class Deletar{entityName}Resultado");
     resultadoCode.AppendLine("    {");
-    resultadoCode.AppendLine($"        public bool Sucesso {{ get; set; }}");
-    resultadoCode.AppendLine($"        public string Mensagem {{ get; set; }}");
+    resultadoCode.AppendLine($"        public int Id{entityName} {{ get; set; }}");
     resultadoCode.AppendLine("    }");
     resultadoCode.AppendLine("}");
 
@@ -763,10 +803,12 @@ string GenerateRequisicaoToEditar(Type entityType, string entityName)
     // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
     requisicaoCode.AppendLine("using System;");
+    requisicaoCode.AppendLine("using MediatR;");
+    requisicaoCode.AppendLine($"using InspecaoWebAPI.Aplicacao.Resultados.{entityName}s;");
     requisicaoCode.AppendLine("using System.Collections.Generic;\n");
     requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entityName}s");
     requisicaoCode.AppendLine("{");
-    requisicaoCode.AppendLine($"    public class Editar{entityName}Requisicao");
+    requisicaoCode.AppendLine($"    public class Editar{entityName}Requisicao : IRequest<Editar{entityName}Resultado>");
     requisicaoCode.AppendLine("    {");
 
     foreach (PropertyInfo property in entityType.GetProperties())
@@ -781,9 +823,15 @@ string GenerateRequisicaoToEditar(Type entityType, string entityName)
         string propertyName = property.Name;
         var typeName = GetFriendlyTypeName(property.PropertyType);
 
+        if (propertyName == "IdEmpreendimento" || propertyName == "IdUsuario")
+            continue;
+
         // Adicionar propriedade ao código de Requisicao
         requisicaoCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
+
+    requisicaoCode.AppendLine($"        public int IdUsuario {{ get; set; }}");
+    requisicaoCode.AppendLine($"        public int IdEmpreendimento {{ get; set; }}");
 
     requisicaoCode.AppendLine("    }");
     requisicaoCode.AppendLine("}");
@@ -797,7 +845,7 @@ string GenerateInputToEditar(Type entityType, string entityName)
     StringBuilder inputCode = new StringBuilder();
     inputCode.AppendLine("using System;");
     inputCode.AppendLine("using System.Collections.Generic;\n");
-    inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    inputCode.AppendLine($"namespace InspecaoWebAPI.Models.{entityName}s");
     inputCode.AppendLine("{");
     inputCode.AppendLine($"    public class Editar{entityName}Input");
     inputCode.AppendLine("    {");
@@ -813,11 +861,14 @@ string GenerateInputToEditar(Type entityType, string entityName)
         string propertyType = property.PropertyType.Name;
         string propertyName = property.Name;
         var typeName = GetFriendlyTypeName(property.PropertyType);
-
+        if (propertyName == "IdEmpreendimento" || propertyName == "IdUsuario")
+            continue;
         // Adicionar propriedade ao código de Requisicao
         inputCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
 
+    inputCode.AppendLine($"        public int IdUsuario {{ get; set; }}");
+    inputCode.AppendLine($"        public int IdEmpreendimento {{ get; set; }}");
     inputCode.AppendLine("    }");
     inputCode.AppendLine("}");
 
@@ -834,8 +885,7 @@ string GenerateResultadoToEditar(string entityName)
     resultadoCode.AppendLine("{");
     resultadoCode.AppendLine($"    public class Editar{entityName}Resultado");
     resultadoCode.AppendLine("    {");
-    resultadoCode.AppendLine($"        public bool Sucesso {{ get; set; }}");
-    resultadoCode.AppendLine($"        public string Mensagem {{ get; set; }}");
+    resultadoCode.AppendLine($"        public int Id{entityName} {{ get; set; }}");
     resultadoCode.AppendLine("    }");
     resultadoCode.AppendLine("}");
 
@@ -848,12 +898,11 @@ string GenerateOutputToEditar(string entityName)
     StringBuilder outputCode = new StringBuilder();
     outputCode.AppendLine("using System;");
     outputCode.AppendLine("using System.Collections.Generic;\n");
-    outputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    outputCode.AppendLine($"namespace InspecaoWebAPI.Models.{entityName}s");
     outputCode.AppendLine("{");
     outputCode.AppendLine($"    public class Editar{entityName}Output");
     outputCode.AppendLine("    {");
-    outputCode.AppendLine($"        public bool Sucesso {{ get; set; }}");
-    outputCode.AppendLine($"        public string Mensagem {{ get; set; }}");
+    outputCode.AppendLine($"        public int Id{entityName} {{ get; set; }}");
     outputCode.AppendLine("    }");
     outputCode.AppendLine("}");
 
@@ -865,10 +914,12 @@ string GenerateRequisicaoToInserir(Type entityType, string entityName)
     // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
     requisicaoCode.AppendLine("using System;");
+    requisicaoCode.AppendLine("using MediatR;");
+    requisicaoCode.AppendLine($"using InspecaoWebAPI.Aplicacao.Resultados.{entityName}s;");
     requisicaoCode.AppendLine("using System.Collections.Generic;\n");
     requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entityName}s");
     requisicaoCode.AppendLine("{");
-    requisicaoCode.AppendLine($"    public class Inserir{entityName}Requisicao");
+    requisicaoCode.AppendLine($"    public class Inserir{entityName}Requisicao : IRequest<Inserir{entityName}Resultado>");
     requisicaoCode.AppendLine("    {");
 
     foreach (PropertyInfo property in entityType.GetProperties())
@@ -883,10 +934,14 @@ string GenerateRequisicaoToInserir(Type entityType, string entityName)
         string propertyName = property.Name;
         var typeName = GetFriendlyTypeName(property.PropertyType);
 
+        if (propertyName == "IdEmpreendimento" || propertyName == "IdUsuario")
+            continue;
         // Adicionar propriedade ao código de Requisicao
         requisicaoCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
 
+    requisicaoCode.AppendLine($"        public int IdUsuario {{ get; set; }}");
+    requisicaoCode.AppendLine($"        public int IdEmpreendimento {{ get; set; }}");
     requisicaoCode.AppendLine("    }");
     requisicaoCode.AppendLine("}");
 
@@ -899,7 +954,7 @@ string GenerateInputToInserir(Type entityType, string entityName)
     StringBuilder inputCode = new StringBuilder();
     inputCode.AppendLine("using System;");
     inputCode.AppendLine("using System.Collections.Generic;\n");
-    inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    inputCode.AppendLine($"namespace InspecaoWebAPI.Models.{entityName}s");
     inputCode.AppendLine("{");
     inputCode.AppendLine($"    public class Inserir{entityName}Input");
     inputCode.AppendLine("    {");
@@ -914,16 +969,19 @@ string GenerateInputToInserir(Type entityType, string entityName)
 
         string propertyType = property.PropertyType.Name;
         string propertyName = property.Name;
-
+        if (propertyName == "IdEmpreendimento" || propertyName == "IdUsuario")
+            continue;
         var typeName = GetFriendlyTypeName(property.PropertyType);
         // Adicionar propriedade ao código de Requisicao
         inputCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
 
+    inputCode.AppendLine($"        public int IdUsuario {{ get; set; }}");
+    inputCode.AppendLine($"        public int IdEmpreendimento {{ get; set; }}");
     inputCode.AppendLine("    }");
     inputCode.AppendLine("}");
 
-    return requisicaoCode.ToString();
+    return inputCode.ToString();
 }
 
 string GenerateResultadoToInserir(string entityName)
@@ -931,12 +989,13 @@ string GenerateResultadoToInserir(string entityName)
     // Construir código para Resultado
     StringBuilder resultadoCode = new StringBuilder();
     resultadoCode.AppendLine("using System;");
+    resultadoCode.AppendLine($"using InspecaoWebAPI.Aplicacao.Dtos.{entityName}s;");
     resultadoCode.AppendLine("using System.Collections.Generic;\n");
     resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados.{entityName}s");
     resultadoCode.AppendLine("{");
     resultadoCode.AppendLine($"    public class Inserir{entityName}Resultado");
     resultadoCode.AppendLine("    {");
-    resultadoCode.AppendLine($"        public int Id{entityName} {{ get; set; }}");
+    resultadoCode.AppendLine($"        public {entityName}Dto {entityName} {{ get; set; }}");
     resultadoCode.AppendLine("    }");
     resultadoCode.AppendLine("}");
 
@@ -947,12 +1006,13 @@ string GenerateOutputToInserir(string entityName)
     // Construir código para Output
     StringBuilder outputCode = new StringBuilder();
     outputCode.AppendLine("using System;");
+    outputCode.AppendLine($"using InspecaoWebAPI.Aplicacao.Dtos.{entityName}s;");
     outputCode.AppendLine("using System.Collections.Generic;\n");
-    outputCode.AppendLine($"namespace InspecaoWebAPI.Models");
+    outputCode.AppendLine($"namespace InspecaoWebAPI.Models.{entityName}s");
     outputCode.AppendLine("{");
     outputCode.AppendLine($"    public class Inserir{entityName}Output");
     outputCode.AppendLine("    {");
-    outputCode.AppendLine($"        public int Id{entityName} {{ get; set; }}");
+    outputCode.AppendLine($"        public {entityName}Dto {entityName} {{ get; set; }}");
     outputCode.AppendLine("    }");
     outputCode.AppendLine("}");
 
@@ -967,7 +1027,7 @@ string GenerateDTO(Type entityType)
 
     sb.AppendLine($"using System;");
     sb.AppendLine($"using System.Collections.Generic;\n");
-    sb.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Dtos");
+    sb.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Dtos.{entityName}s");
     sb.AppendLine("{");
     sb.AppendLine($"    public class {simpleEntityName}Dto");
     sb.AppendLine("    {");
