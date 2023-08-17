@@ -10,13 +10,19 @@ string DiretorioResultado = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebA
 string DiretorioRepositorioInfraestrutura = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.InfraestruturaEntityFramework\BancoDados\RepositoriosEntityFramework";
 
 string namespaceName = "InspecaoWebAPI";
-string entityName = "TesteEntidade";
+string entityName = "PrazosGut";
 string assemblyEntidadePath = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.DominioEntityFramework\bin\Debug\net6.0\InspecaoWebAPI.DominioEntityFramework.dll";
 
 Assembly assembly = Assembly.LoadFrom(assemblyEntidadePath);
 string aaaaaa = $"InspecaoWebAPI.DominioEntityFramework.Entidades.{entityName}";
 //Type entityType = assembly.GetType(entityName);
-Type entityType = assembly.GetTypes().FirstOrDefault(a=>a.FullName.EndsWith(entityName));
+Type entityType = assembly.GetTypes().FirstOrDefault(a => a.FullName.EndsWith(entityName));
+
+if (entityType == null)
+{
+    Console.WriteLine("Entidade não encontrada");
+    return;
+}
 
 //Dto
 string dto = GenerateDTO(entityType);
@@ -99,7 +105,7 @@ resultadoFilePath = Path.Combine(resultadoDirectory, $"Inserir{entityName}Result
 File.WriteAllText(resultadoFilePath, resultadoCode);
 
 // Input
-inputCode = GenerateInputToInserir(entityType,entityName);
+inputCode = GenerateInputToInserir(entityType, entityName);
 inputDirectory = Path.Combine(DiretorioModel, $"{entityName}s");
 Directory.CreateDirectory(inputDirectory);
 inputFilePath = Path.Combine(inputDirectory, $"Inserir{entityName}Input.cs");
@@ -184,7 +190,6 @@ Directory.CreateDirectory(outputDirectory);
 outputFilePath = Path.Combine(outputDirectory, $"Deletar{entityName}Output.cs");
 File.WriteAllText(outputFilePath, outputCode);
 
-
 string GenerateController(string entityName, string namespaceName)
 {
     StringBuilder sb = new StringBuilder();
@@ -197,7 +202,9 @@ string GenerateController(string entityName, string namespaceName)
     sb.AppendLine("using Microsoft.AspNetCore.Http;");
     sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
     sb.AppendLine("using System.Threading;");
-    sb.AppendLine("using System.Threading.Tasks;\n");
+    sb.AppendLine("using System.Threading.Tasks;");
+    sb.AppendLine($"using System;");
+    sb.AppendLine($"using System.Collections.Generic;\n");
 
     // Namespace & Controller
     sb.AppendLine($"namespace {namespaceName}.Controllers");
@@ -206,10 +213,10 @@ string GenerateController(string entityName, string namespaceName)
     sb.AppendFormat("    public class {0}Controller : ApiController\n", entityName);
     sb.AppendLine("    {");
 
-    string[] actions = { 
+    string[] actions = {
         //"Listar",
-        "Obter", 
-        "Excluir", 
+        "Obter",
+        "Excluir",
         "Inserir",
         "Editar"
     };
@@ -269,7 +276,9 @@ string GenerateExecutorToObter(string entityName, string namespaceName)
     sb.AppendLine($"using {namespaceName}.Aplicacao.Requisicoes.{entityName}s;");
     sb.AppendLine($"using {namespaceName}.Aplicacao.Resultados.{entityName}s;");
     sb.AppendLine("using System.Threading;");
-    sb.AppendLine("using System.Threading.Tasks;\n");
+    sb.AppendLine("using System;");
+    sb.AppendLine("using System.Collections.Generic;\n");
+    sb.AppendLine("using System.Threading.Tasks;");
 
     // Namespace
     sb.AppendLine($"namespace {namespaceName}.Aplicacao.Executores.{entityName}s");
@@ -315,7 +324,7 @@ string GenerateInterfaceRepositorioAplicacao(string entityName, string namespace
     sb.AppendFormat("using {0}.DominioEntityFramework.Entidades;\n", namespaceName);
     sb.AppendLine("using System;");
     sb.AppendLine("using System.Collections.Generic;");
-    sb.AppendLine("using System.Linq.Expressions;\n");
+    sb.AppendLine("using System.Linq.Expressions;");
 
     sb.AppendFormat("namespace {0}.Aplicacao.RepositoriosEntityFramework\n", namespaceName);
     sb.AppendLine("{");
@@ -361,6 +370,8 @@ string GenerateRepositorioInfraestrutura(string entityName, string namespaceBase
     sb.AppendLine($"using {namespaceBase}.Aplicacao.RepositoriosEntityFramework;");
     sb.AppendLine($"using {namespaceBase}.DominioEntityFramework.Entidades;");
     sb.AppendLine($"using Sysdam.Database.DatabaseConnection;");
+    sb.AppendLine("using System;");
+    sb.AppendLine("using System.Collections.Generic;");
     sb.AppendLine($"using System.Linq.Expressions;\n");
 
     sb.AppendLine($"namespace {namespaceBase}.InfraestruturaEntityFramework.BancoDados.RepositoriosEntityFramework");
@@ -435,6 +446,8 @@ string GenerateExecutorToDeletar(string entityName, string namespaceBase)
     sb.AppendLine($"using {namespaceBase}.Aplicacao.Requisicoes.{entityName}s;");
     sb.AppendLine($"using {namespaceBase}.Aplicacao.Resultados.{entityName}s;");
     sb.AppendLine($"using System.Threading;");
+    sb.AppendLine("using System;");
+    sb.AppendLine("using System.Collections.Generic;\n");
     sb.AppendLine($"using System.Threading.Tasks;");
 
     sb.AppendLine($"\nnamespace {namespaceBase}.Aplicacao.Executores.{entityName}s");
@@ -452,7 +465,7 @@ string GenerateExecutorToDeletar(string entityName, string namespaceBase)
 
     sb.AppendLine($"        public Task<{resultadoName}> Handle({requisicaoName} request, CancellationToken cancellationToken)");
     sb.AppendLine("        {");
-    sb.AppendLine($"            var entity{entityName} = {entityName.ToLower()}Repositorio.BuscarPorId(request.Id);");
+    sb.AppendLine($"            var entity{entityName} = {entityName.ToLower()}Repositorio.ObterPorId(request.Id{entityName});");
     sb.AppendLine($"            if (entity{entityName} == null)");
     sb.AppendLine("            {");
     sb.AppendLine($"                return Task.FromResult(new {resultadoName}()");
@@ -490,6 +503,8 @@ string GenerateExecutorToEditar(string entityName, string namespaceBase)
     sb.AppendLine($"using {namespaceBase}.Aplicacao.Requisicoes.{entityName}s;");
     sb.AppendLine($"using {namespaceBase}.Aplicacao.Resultados.{entityName}s;");
     sb.AppendLine($"using System.Threading;");
+    sb.AppendLine("using System;");
+    sb.AppendLine("using System.Collections.Generic;\n");
     sb.AppendLine($"using System.Threading.Tasks;");
 
     sb.AppendLine($"\nnamespace {namespaceBase}.Aplicacao.Executores.{entityName}s");
@@ -547,6 +562,8 @@ string GenerateExecutorToInsert(string entityName, string namespaceBase)
     sb.AppendLine($"using {namespaceBase}.Aplicacao.Resultados.{entityName}s;");
     sb.AppendLine($"using System.Threading;");
     sb.AppendLine($"using System.Threading.Tasks;");
+    sb.AppendLine("using System;");
+    sb.AppendLine("using System.Collections.Generic;\n");
 
     sb.AppendLine($"\nnamespace {namespaceBase}.Aplicacao.Executores.{entityName}s");
     sb.AppendLine("{");
@@ -582,6 +599,8 @@ string GenerateRequisicaoToObter(string entidadeNome)
     StringBuilder requisicaoCode = new StringBuilder();
 
     // Generate Requisicao Code
+    requisicaoCode.AppendLine("using System;");
+    requisicaoCode.AppendLine("using System.Collections.Generic;\n");
     requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entidadeNome}s");
     requisicaoCode.AppendLine("{");
     requisicaoCode.AppendFormat("    public class Obter{0}Requisicao\n", entidadeNome);
@@ -600,6 +619,8 @@ string GenerateInputToObter(string entidadeNome)
     StringBuilder inputCode = new StringBuilder();
 
     // Generate Requisicao Code
+    inputCode.AppendLine("using System;");
+    inputCode.AppendLine("using System.Collections.Generic;\n");
     inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
     inputCode.AppendLine("{");
     inputCode.AppendFormat("    public class Obter{0}Input\n", entidadeNome);
@@ -617,6 +638,8 @@ string GenerateResultadoToObter(string entidadeNome)
     StringBuilder resultadoCode = new StringBuilder();
 
     // Generate Resultado Code
+    resultadoCode.AppendLine("using System;");
+    resultadoCode.AppendLine("using System.Collections.Generic;\n");
     resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados.{entidadeNome}s");
     resultadoCode.AppendLine("{");
     resultadoCode.AppendFormat("    public class Obter{0}Resultado\n", entidadeNome);
@@ -633,6 +656,8 @@ string GenerateOutputToObter(string entidadeNome)
     StringBuilder outputCode = new StringBuilder();
 
     // Generate Output Code
+    outputCode.AppendLine("using System;");
+    outputCode.AppendLine("using System.Collections.Generic;\n");
     outputCode.AppendLine($"namespace InspecaoWebAPI.Models");
     outputCode.AppendLine("{");
     outputCode.AppendFormat("    public class Obter{0}Output\n", entidadeNome);
@@ -654,19 +679,22 @@ string GenerateRequisicaoToDeletar(Type entityType, string entityName)
         throw new InvalidOperationException($"Não foi possível identificar a chave primária para {entityName}.");
     }
 
+    var typeName = GetFriendlyTypeName(primaryKey.PropertyType);
+
     // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
+    requisicaoCode.AppendLine("using System;");
+    requisicaoCode.AppendLine("using System.Collections.Generic;\n");
     requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entityName}s");
     requisicaoCode.AppendLine("{");
     requisicaoCode.AppendLine($"    public class Deletar{entityName}Requisicao");
     requisicaoCode.AppendLine("    {");
-    requisicaoCode.AppendLine($"        public {primaryKey.PropertyType.Name.ToLower().Replace("32", "")} {primaryKey.Name} {{ get; set; }}");
+    requisicaoCode.AppendLine($"        public {typeName} {primaryKey.Name} {{ get; set; }}");
     requisicaoCode.AppendLine("    }");
     requisicaoCode.AppendLine("}");
 
     return requisicaoCode.ToString();
 }
-
 
 string GenerateInputToDeletar(Type entityType, string entityName)
 {
@@ -679,12 +707,16 @@ string GenerateInputToDeletar(Type entityType, string entityName)
     }
 
     // Construir código para Input
+    var typeName = GetFriendlyTypeName(primaryKey.PropertyType);
+
     StringBuilder inputCode = new StringBuilder();
+    inputCode.AppendLine("using System;");
+    inputCode.AppendLine("using System.Collections.Generic;\n");
     inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
     inputCode.AppendLine("{");
     inputCode.AppendLine($"    public class Deletar{entityName}Input");
     inputCode.AppendLine("    {");
-    inputCode.AppendLine($"        public {primaryKey.PropertyType.Name.ToLower().Replace("32", "")} {primaryKey.Name} {{ get; set; }}");
+    inputCode.AppendLine($"        public {typeName} {primaryKey.Name} {{ get; set; }}");
     inputCode.AppendLine("    }");
     inputCode.AppendLine("}");
 
@@ -694,6 +726,8 @@ string GenerateOutputToDeletar(string entityName)
 {
     // Construir código para Output
     StringBuilder outputCode = new StringBuilder();
+    outputCode.AppendLine("using System;");
+    outputCode.AppendLine("using System.Collections.Generic;\n");
     outputCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Outputs");
     outputCode.AppendLine("{");
     outputCode.AppendLine($"    public class Deletar{entityName}Output");
@@ -706,12 +740,13 @@ string GenerateOutputToDeletar(string entityName)
     return outputCode.ToString();
 }
 
-
 string GenerateResultadoToDeletar(string entityName)
 {
     // Construir código para Resultado
     StringBuilder resultadoCode = new StringBuilder();
-    resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados");
+    resultadoCode.AppendLine("using System;");
+    resultadoCode.AppendLine("using System.Collections.Generic;\n");
+    resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados.{entityName}s");
     resultadoCode.AppendLine("{");
     resultadoCode.AppendLine($"    public class Deletar{entityName}Resultado");
     resultadoCode.AppendLine("    {");
@@ -727,6 +762,8 @@ string GenerateRequisicaoToEditar(Type entityType, string entityName)
 {
     // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
+    requisicaoCode.AppendLine("using System;");
+    requisicaoCode.AppendLine("using System.Collections.Generic;\n");
     requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entityName}s");
     requisicaoCode.AppendLine("{");
     requisicaoCode.AppendLine($"    public class Editar{entityName}Requisicao");
@@ -742,9 +779,10 @@ string GenerateRequisicaoToEditar(Type entityType, string entityName)
 
         string propertyType = property.PropertyType.Name;
         string propertyName = property.Name;
+        var typeName = GetFriendlyTypeName(property.PropertyType);
 
         // Adicionar propriedade ao código de Requisicao
-        requisicaoCode.AppendLine($"        public {propertyType} {propertyName} {{ get; set; }}");
+        requisicaoCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
 
     requisicaoCode.AppendLine("    }");
@@ -753,12 +791,12 @@ string GenerateRequisicaoToEditar(Type entityType, string entityName)
     return requisicaoCode.ToString();
 }
 
-
-
 string GenerateInputToEditar(Type entityType, string entityName)
 {
     // Construir código para Input
     StringBuilder inputCode = new StringBuilder();
+    inputCode.AppendLine("using System;");
+    inputCode.AppendLine("using System.Collections.Generic;\n");
     inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
     inputCode.AppendLine("{");
     inputCode.AppendLine($"    public class Editar{entityName}Input");
@@ -774,9 +812,10 @@ string GenerateInputToEditar(Type entityType, string entityName)
 
         string propertyType = property.PropertyType.Name;
         string propertyName = property.Name;
+        var typeName = GetFriendlyTypeName(property.PropertyType);
 
         // Adicionar propriedade ao código de Requisicao
-        inputCode.AppendLine($"        public {propertyType} {propertyName} {{ get; set; }}");
+        inputCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
 
     inputCode.AppendLine("    }");
@@ -789,6 +828,8 @@ string GenerateResultadoToEditar(string entityName)
 {
     // Construir código para Resultado
     StringBuilder resultadoCode = new StringBuilder();
+    resultadoCode.AppendLine("using System;");
+    resultadoCode.AppendLine("using System.Collections.Generic;\n");
     resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados.{entityName}s");
     resultadoCode.AppendLine("{");
     resultadoCode.AppendLine($"    public class Editar{entityName}Resultado");
@@ -805,6 +846,8 @@ string GenerateOutputToEditar(string entityName)
 {
     // Construir código para Output
     StringBuilder outputCode = new StringBuilder();
+    outputCode.AppendLine("using System;");
+    outputCode.AppendLine("using System.Collections.Generic;\n");
     outputCode.AppendLine($"namespace InspecaoWebAPI.Models");
     outputCode.AppendLine("{");
     outputCode.AppendLine($"    public class Editar{entityName}Output");
@@ -821,6 +864,8 @@ string GenerateRequisicaoToInserir(Type entityType, string entityName)
 {
     // Construir código para Requisicao
     StringBuilder requisicaoCode = new StringBuilder();
+    requisicaoCode.AppendLine("using System;");
+    requisicaoCode.AppendLine("using System.Collections.Generic;\n");
     requisicaoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Requisicoes.{entityName}s");
     requisicaoCode.AppendLine("{");
     requisicaoCode.AppendLine($"    public class Inserir{entityName}Requisicao");
@@ -836,9 +881,10 @@ string GenerateRequisicaoToInserir(Type entityType, string entityName)
 
         string propertyType = property.PropertyType.Name;
         string propertyName = property.Name;
+        var typeName = GetFriendlyTypeName(property.PropertyType);
 
         // Adicionar propriedade ao código de Requisicao
-        requisicaoCode.AppendLine($"        public {propertyType} {propertyName} {{ get; set; }}");
+        requisicaoCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
 
     requisicaoCode.AppendLine("    }");
@@ -851,6 +897,8 @@ string GenerateInputToInserir(Type entityType, string entityName)
 {
     // Construir código para Input
     StringBuilder inputCode = new StringBuilder();
+    inputCode.AppendLine("using System;");
+    inputCode.AppendLine("using System.Collections.Generic;\n");
     inputCode.AppendLine($"namespace InspecaoWebAPI.Models");
     inputCode.AppendLine("{");
     inputCode.AppendLine($"    public class Inserir{entityName}Input");
@@ -867,8 +915,9 @@ string GenerateInputToInserir(Type entityType, string entityName)
         string propertyType = property.PropertyType.Name;
         string propertyName = property.Name;
 
+        var typeName = GetFriendlyTypeName(property.PropertyType);
         // Adicionar propriedade ao código de Requisicao
-        inputCode.AppendLine($"        public {propertyType} {propertyName} {{ get; set; }}");
+        inputCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
 
     inputCode.AppendLine("    }");
@@ -881,6 +930,8 @@ string GenerateResultadoToInserir(string entityName)
 {
     // Construir código para Resultado
     StringBuilder resultadoCode = new StringBuilder();
+    resultadoCode.AppendLine("using System;");
+    resultadoCode.AppendLine("using System.Collections.Generic;\n");
     resultadoCode.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Resultados.{entityName}s");
     resultadoCode.AppendLine("{");
     resultadoCode.AppendLine($"    public class Inserir{entityName}Resultado");
@@ -895,6 +946,8 @@ string GenerateOutputToInserir(string entityName)
 {
     // Construir código para Output
     StringBuilder outputCode = new StringBuilder();
+    outputCode.AppendLine("using System;");
+    outputCode.AppendLine("using System.Collections.Generic;\n");
     outputCode.AppendLine($"namespace InspecaoWebAPI.Models");
     outputCode.AppendLine("{");
     outputCode.AppendLine($"    public class Inserir{entityName}Output");
@@ -912,6 +965,8 @@ string GenerateDTO(Type entityType)
 
     var simpleEntityName = entityType.Name;
 
+    sb.AppendLine($"using System;");
+    sb.AppendLine($"using System.Collections.Generic;\n");
     sb.AppendLine($"namespace InspecaoWebAPI.Aplicacao.Dtos");
     sb.AppendLine("{");
     sb.AppendLine($"    public class {simpleEntityName}Dto");
@@ -921,7 +976,8 @@ string GenerateDTO(Type entityType)
     {
         if (!prop.PropertyType.Name.Contains("ICollection"))
         {
-            sb.AppendLine($"        public {prop.PropertyType.Name} {prop.Name} {{ get; set; }}");
+            var typeName = GetFriendlyTypeName(prop.PropertyType);
+            sb.AppendLine($"        public {typeName} {prop.Name} {{ get; set; }}");
         }
     }
 
@@ -929,4 +985,38 @@ string GenerateDTO(Type entityType)
     sb.AppendLine("}");
 
     return sb.ToString();
+}
+
+string GetFriendlyTypeName(Type type)
+{
+    bool isNullable = false;
+    if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+    {
+        // Para tipos Nullable (como int?, double?), você pode pegar o tipo subjacente
+        type = Nullable.GetUnderlyingType(type);
+        isNullable = true;
+    }
+
+    var typeMap = new Dictionary<string, string>
+    {
+        { "Int16", "short" },
+        { "Int32", "int" },
+        { "Int64", "long" },
+        { "UInt16", "ushort" },
+        { "UInt32", "uint" },
+        { "UInt64", "ulong" },
+        { "Single", "float" },
+        { "Double", "double" },
+        { "Decimal", "decimal" },
+        { "Boolean", "bool" },
+        { "Char", "char" },
+        { "Byte", "byte" },
+        { "SByte", "sbyte" },
+        { "String", "string" },
+        { "Object", "object" },
+        //... você pode adicionar mais conforme necessário
+    };
+
+    string name = typeMap.TryGetValue(type.Name, out var friendlyName) ? friendlyName : type.Name;
+    return isNullable ? $"{name}?" : name;
 }
