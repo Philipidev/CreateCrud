@@ -15,13 +15,13 @@ string entityName = "PrazosGut";
 string assemblyEntidadePath = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.DominioEntityFramework\bin\Debug\net6.0\InspecaoWebAPI.DominioEntityFramework.dll";
 
 Assembly assembly = Assembly.LoadFrom(assemblyEntidadePath);
-string aaaaaa = $"InspecaoWebAPI.DominioEntityFramework.Entidades.{entityName}";
 //Type entityType = assembly.GetType(entityName);
 Type entityType = assembly.GetTypes().FirstOrDefault(a => a.FullName.EndsWith(entityName));
 
 if (entityType == null)
 {
     Console.WriteLine("Entidade não encontrada");
+    Console.WriteLine("Se o arquivo existir, lembre de compilar primeiro a aplicação para gerar a DLL");
     return;
 }
 
