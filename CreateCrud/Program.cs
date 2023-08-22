@@ -11,7 +11,7 @@ string DiretorioRepositorioInfraestrutura = @"D:\Repositorios\Sysdam\InspecaoWeb
 string DiretorioController = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI\Controllers";
 
 string namespaceName = "InspecaoWebAPI";
-string entityName = "PrazosGut";
+string entityName = "RecomendacaoPlanoAcaoTipoCategoriaConteudo";
 string assemblyEntidadePath = @"D:\Repositorios\Sysdam\InspecaoWebAPI\InspecaoWebAPI.DominioEntityFramework\bin\Debug\net6.0\InspecaoWebAPI.DominioEntityFramework.dll";
 
 Assembly assembly = Assembly.LoadFrom(assemblyEntidadePath);
@@ -21,7 +21,7 @@ Type entityType = assembly.GetTypes().FirstOrDefault(a => a.FullName.EndsWith(en
 if (entityType == null)
 {
     Console.WriteLine("Entidade não encontrada");
-    Console.WriteLine("Se o arquivo existir, lembre de compilar primeiro a aplicação para gerar a DLL");
+    Console.WriteLine("Se o arquivo existir, lembre de compilar primeiro o projeto para gerar a DLL");
     return;
 }
 
@@ -244,7 +244,10 @@ string GenerateController(string entityName, string namespaceName)
 
         sb.AppendFormat("        [{0}(\"api/[controller]/{1}{2}\")]\n", httpVerb, action, entityName);
         sb.AppendFormat("        [ProducesResponseType(typeof({0}{1}Output), StatusCodes.Status200OK)]\n", action, entityName);
-        sb.AppendFormat("        public async Task<ObjectResult> {0}{1}({0}{1}Input input, CancellationToken cancellationToken)\n", action, entityName);
+        if (httpVerb is "HttpGet")
+            sb.AppendFormat("        public async Task<ObjectResult> {0}{1}([FromQuery]{0}{1}Input input, CancellationToken cancellationToken)\n", action, entityName);
+        else
+            sb.AppendFormat("        public async Task<ObjectResult> {0}{1}({0}{1}Input input, CancellationToken cancellationToken)\n", action, entityName);
         sb.AppendLine("        {");
 
         sb.AppendFormat("            {0}{1}Requisicao requisicao = new {0}{1}Requisicao()\n", action, entityName);
@@ -261,7 +264,10 @@ string GenerateController(string entityName, string namespaceName)
                     continue;
 
                 // Excluir apenas a DataExclusao
-                if (property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase))
+                if (property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase)
+                   || property.PropertyType.Name.Contains("ICollection")
+                    || property.PropertyType.Namespace.Contains("InspecaoWebAPI")
+                   )
                 {
                     continue;
                 }
@@ -274,7 +280,6 @@ string GenerateController(string entityName, string namespaceName)
                 // Adicionar propriedade ao código de Requisicao
                 sb.AppendLine($"                {propertyName} = input.{propertyName},");
             }
-
         }
         sb.AppendLine("                IdUsuario = User.Identity.ObterIdUsuario(),");
         sb.AppendLine("                IdEmpreendimento = input.IdEmpreendimento,");
@@ -287,7 +292,7 @@ string GenerateController(string entityName, string namespaceName)
         sb.AppendLine("            {");
         if (action is "Obter" or "Inserir")
             sb.AppendFormat("                {0} = resultado.{0},\n", entityName);
-        if( action is "Editar" or "Deletar")
+        if (action is "Editar" or "Deletar")
             sb.AppendFormat("                Id{0} = resultado.Id{0},\n", entityName);
         sb.AppendLine("            };");
         sb.AppendLine();
@@ -814,7 +819,10 @@ string GenerateRequisicaoToEditar(Type entityType, string entityName)
     foreach (PropertyInfo property in entityType.GetProperties())
     {
         // Excluir apenas a DataExclusao
-        if (property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase))
+        if (property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase)
+            || property.PropertyType.Name.Contains("ICollection")
+            || property.PropertyType.Namespace.Contains("InspecaoWebAPI")
+            )
         {
             continue;
         }
@@ -853,7 +861,10 @@ string GenerateInputToEditar(Type entityType, string entityName)
     foreach (PropertyInfo property in entityType.GetProperties())
     {
         // Excluir apenas a DataExclusao
-        if (property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase))
+        if (property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase)
+           || property.PropertyType.Name.Contains("ICollection")
+            || property.PropertyType.Namespace.Contains("InspecaoWebAPI")
+           )
         {
             continue;
         }
@@ -861,13 +872,12 @@ string GenerateInputToEditar(Type entityType, string entityName)
         string propertyType = property.PropertyType.Name;
         string propertyName = property.Name;
         var typeName = GetFriendlyTypeName(property.PropertyType);
-        if (propertyName == "IdEmpreendimento" || propertyName == "IdUsuario")
+        if (propertyName == "IdEmpreendimento")
             continue;
         // Adicionar propriedade ao código de Requisicao
         inputCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
 
-    inputCode.AppendLine($"        public int IdUsuario {{ get; set; }}");
     inputCode.AppendLine($"        public int IdEmpreendimento {{ get; set; }}");
     inputCode.AppendLine("    }");
     inputCode.AppendLine("}");
@@ -924,8 +934,12 @@ string GenerateRequisicaoToInserir(Type entityType, string entityName)
 
     foreach (PropertyInfo property in entityType.GetProperties())
     {
-        // Excluir a chave primária e a DataExclusao
-        if (property.Name.Equals($"Id{entityName}", StringComparison.OrdinalIgnoreCase) || property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase))
+        // Excluir a chave primária e a DataExclusao e Coleções
+        if (property.Name.Equals($"Id{entityName}", StringComparison.OrdinalIgnoreCase)
+            || property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase)
+            || property.PropertyType.Name.Contains("ICollection")
+            || property.PropertyType.Namespace.Contains("InspecaoWebAPI")
+            )
         {
             continue;
         }
@@ -962,21 +976,24 @@ string GenerateInputToInserir(Type entityType, string entityName)
     foreach (PropertyInfo property in entityType.GetProperties())
     {
         // Excluir a chave primária e a DataExclusao
-        if (property.Name.Equals($"Id{entityName}", StringComparison.OrdinalIgnoreCase) || property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase))
+        if (property.Name.Equals($"Id{entityName}", StringComparison.OrdinalIgnoreCase)
+            || property.Name.Equals("DataExclusao", StringComparison.OrdinalIgnoreCase)
+            || property.PropertyType.Name.Contains("ICollection")
+            || property.PropertyType.Namespace.Contains("InspecaoWebAPI")
+            )
         {
             continue;
         }
 
         string propertyType = property.PropertyType.Name;
         string propertyName = property.Name;
-        if (propertyName == "IdEmpreendimento" || propertyName == "IdUsuario")
+        if (propertyName == "IdEmpreendimento")
             continue;
         var typeName = GetFriendlyTypeName(property.PropertyType);
         // Adicionar propriedade ao código de Requisicao
         inputCode.AppendLine($"        public {typeName} {propertyName} {{ get; set; }}");
     }
 
-    inputCode.AppendLine($"        public int IdUsuario {{ get; set; }}");
     inputCode.AppendLine($"        public int IdEmpreendimento {{ get; set; }}");
     inputCode.AppendLine("    }");
     inputCode.AppendLine("}");
@@ -1034,7 +1051,7 @@ string GenerateDTO(Type entityType)
 
     foreach (var prop in entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
     {
-        if (!prop.PropertyType.Name.Contains("ICollection"))
+        if (!prop.PropertyType.Name.Contains("ICollection") && !prop.PropertyType.Namespace.Contains("InspecaoWebAPI"))
         {
             var typeName = GetFriendlyTypeName(prop.PropertyType);
             sb.AppendLine($"        public {typeName} {prop.Name} {{ get; set; }}");
@@ -1052,7 +1069,6 @@ string GetFriendlyTypeName(Type type)
     bool isNullable = false;
     if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
     {
-        // Para tipos Nullable (como int?, double?), você pode pegar o tipo subjacente
         type = Nullable.GetUnderlyingType(type);
         isNullable = true;
     }
@@ -1074,7 +1090,6 @@ string GetFriendlyTypeName(Type type)
         { "SByte", "sbyte" },
         { "String", "string" },
         { "Object", "object" },
-        //... você pode adicionar mais conforme necessário
     };
 
     string name = typeMap.TryGetValue(type.Name, out var friendlyName) ? friendlyName : type.Name;
